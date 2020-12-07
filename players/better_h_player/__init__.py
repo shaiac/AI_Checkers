@@ -1,10 +1,11 @@
 # ===============================================================================
 # Imports
 # ===============================================================================
+import operator
 
 import abstract
 from utils import MiniMaxWithAlphaBetaPruning, INFINITY, run_with_limited_time, ExceededTimeError
-from checkers.consts import EM, PAWN_COLOR, KING_COLOR, OPPONENT_COLOR, MAX_TURNS_NO_JUMP, RED_PLAYER, BLACK_PLAYER
+from checkers.consts import EM, PAWN_COLOR, KING_COLOR, OPPONENT_COLOR, MAX_TURNS_NO_JUMP, RP, RK, BP, BK, RED_PLAYER, BLACK_PLAYER, MY_COLORS, OPPONENT_COLORS
 import time
 from collections import defaultdict
 
@@ -14,10 +15,10 @@ from collections import defaultdict
 
 PAWN_WEIGHT = 1
 KING_WEIGHT = 1.5
-CENTER = 2
-BACK_LINE = 3
-ATTACK_PAWN = 4
-ATTACK_KING = 5
+CENTER = 0.6
+BACK_LINE = 0.7
+ATTACK_PAWN = 0.5
+ATTACK_KING = 1.5
 
 
 # ===============================================================================
@@ -56,6 +57,7 @@ class Player(abstract.AbstractPlayer):
 
             print('going to depth: {}, remaining time: {}, prev_alpha: {}, best_move: {}'.format(
                 current_depth,
+                current_depth,
                 self.time_for_current_move - (time.process_time() - self.clock),
                 prev_alpha,
                 best_move))
@@ -93,16 +95,17 @@ class Player(abstract.AbstractPlayer):
             self.time_remaining_in_round -= (time.process_time() - self.clock)
         return best_move
 
-    # Checking if the location is center (that is more powerful location in checkers strategy).
     @staticmethod
     def is_in_center(loc):
         x, y = loc[0], loc[1]
-        if (x == 3 and y == 2) or (x == 3 and y == 4) or (x == 4 and y == 5) or (x == 4 and y == 3):
+        if (x == 3 and y == 2) or (x == 3 and y == 4) or (x == 4 and y == 5) or (x == 4 and y ==3):
             return True
         return False
 
     @staticmethod
-    def is_in_back_line(loc, player_color):
+    def is_in_back_line(loc, loc_val, player_color):
+        if loc_val in KING_COLOR.values():
+            return False
         x, y = loc[0], loc[1]
         if player_color == BLACK_PLAYER:
             if x == 7 and (y == 2 or y == 6):
@@ -111,8 +114,51 @@ class Player(abstract.AbstractPlayer):
             if x == 0 and (y == 2 or y == 6):
                 return True
 
-    def attack_is_possible(self, loc, player_color, board):
-        print (0)
+    @staticmethod
+    def attack(loc, color, board, tools):
+        x, y = loc[0], loc[1]
+        opponent_color = OPPONENT_COLOR[color]
+        if color == BLACK_PLAYER:
+            try:
+                if board[(x - 1, y + 1)] == tools[opponent_color] and board[(x - 2, y + 2)] == EM:  # right diagonal
+                    return True
+            except KeyError:
+                error = 1
+            try:
+                if board[(x - 1, y - 1)] == tools[opponent_color] and board[(x - 2, y - 2)] == EM:  # left diagonal
+                    return True
+            except KeyError:
+                error = 1
+        else:
+            try:
+                if board[(x + 1, y + 1)] == tools[opponent_color] and board[(x + 2, y + 2)] == EM:  # right diagonal
+                    return True
+            except KeyError:
+                error = 1
+            try:
+                if board[(x + 1, y - 1)] == tools[opponent_color] and board[(x + 2, y - 2)] == EM:  # left diagonal
+                    return True
+            except KeyError:
+                error = 1
+
+
+    def sum_util(self, loc, loc_val, color, board):
+        h_sum = 0
+        if self.is_in_center(loc):
+            h_sum += CENTER
+        elif self.is_in_back_line(loc, loc_val, color):
+            h_sum += BACK_LINE
+        if self.attack(loc, color, board, PAWN_COLOR):
+           h_sum += ATTACK_PAWN
+        if self.attack(loc, color, board, KING_COLOR):
+           h_sum += ATTACK_KING
+        return h_sum
+
+    @staticmethod
+    def get_truth(inp, relate, cut):
+        ops = {'+': operator.add,
+               '-': operator.sub}
+        return ops[relate](inp, cut)
 
     def utility(self, state):
         if len(state.get_possible_moves()) == 0:
@@ -120,17 +166,23 @@ class Player(abstract.AbstractPlayer):
         if state.turns_since_last_jump >= MAX_TURNS_NO_JUMP:
             return 0
 
+        opponent_color = OPPONENT_COLOR[self.color]
         piece_counts = defaultdict(lambda: 0)
-        for loc, loc_val in state.board:
+        my_h_sum = 0
+        op_h_sum = 0
+        for loc in state.board.keys():
+            loc_val = state.board[loc]
             if loc_val != EM:
+                if loc_val in MY_COLORS[self.color]:
+                    my_h_sum += self.sum_util(loc, loc_val, self.color, state.board)
+                elif loc_val in OPPONENT_COLORS[self.color]:
+                    op_h_sum += self.sum_util(loc, loc_val, opponent_color, state.board)
                 piece_counts[loc_val] += 1
 
-        opponent_color = OPPONENT_COLOR[self.color]
-
         my_u = ((PAWN_WEIGHT * piece_counts[PAWN_COLOR[self.color]]) +
-                (KING_WEIGHT * piece_counts[KING_COLOR[self.color]]))
+                (KING_WEIGHT * piece_counts[KING_COLOR[self.color]])) + my_h_sum
         op_u = ((PAWN_WEIGHT * piece_counts[PAWN_COLOR[opponent_color]]) +
-                (KING_WEIGHT * piece_counts[KING_COLOR[opponent_color]]))
+                (KING_WEIGHT * piece_counts[KING_COLOR[opponent_color]])) + op_h_sum
         if my_u == 0:
             # I have no tools left
             return -INFINITY
@@ -148,6 +200,6 @@ class Player(abstract.AbstractPlayer):
         return (time.process_time() - self.clock) >= self.time_for_current_move
 
     def __repr__(self):
-        return '{} {}'.format(abstract.AbstractPlayer.__repr__(self), 'simple')
+        return '{} {}'.format(abstract.AbstractPlayer.__repr__(self), 'better_h')
 
 # c:\python35\python.exe run_game.py 3 3 3 y simple_player random_player
