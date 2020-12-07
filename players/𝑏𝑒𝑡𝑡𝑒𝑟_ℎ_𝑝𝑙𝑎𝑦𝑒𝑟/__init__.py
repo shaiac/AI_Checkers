@@ -14,6 +14,10 @@ from collections import defaultdict
 
 PAWN_WEIGHT = 1
 KING_WEIGHT = 1.5
+CENTER = 2
+BACK_LINE = 3
+ATTACK_PAWN = 4
+ATTACK_KING = 5
 
 
 # ===============================================================================
@@ -52,7 +56,6 @@ class Player(abstract.AbstractPlayer):
 
             print('going to depth: {}, remaining time: {}, prev_alpha: {}, best_move: {}'.format(
                 current_depth,
-                current_depth,
                 self.time_for_current_move - (time.process_time() - self.clock),
                 prev_alpha,
                 best_move))
@@ -90,15 +93,26 @@ class Player(abstract.AbstractPlayer):
             self.time_remaining_in_round -= (time.process_time() - self.clock)
         return best_move
 
+    @staticmethod
+    def is_in_center(loc):
+        x, y = loc[0], loc[1]
+        if (x == 3 and y == 2) or (x == 3 and y == 4) or (x == 4 and y == 5) or (x == 4 and y ==3):
+            return True
+        return False
+
+
+    def is_in_back_line(self, loc, player_color):
+        if player_color == OPPONENT_COLOR["BLACK_PLAYER"]:
+            return 0
+
     def utility(self, state):
         if len(state.get_possible_moves()) == 0:
             return INFINITY if state.curr_player != self.color else -INFINITY
         if state.turns_since_last_jump >= MAX_TURNS_NO_JUMP:
             return 0
 
-        # Count how many red and black pawn
         piece_counts = defaultdict(lambda: 0)
-        for loc_val in state.board.values():
+        for loc, loc_val in state.board:
             if loc_val != EM:
                 piece_counts[loc_val] += 1
 
