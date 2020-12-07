@@ -4,7 +4,7 @@
 
 import abstract
 from utils import MiniMaxWithAlphaBetaPruning, INFINITY, run_with_limited_time, ExceededTimeError
-from checkers.consts import EM, PAWN_COLOR, KING_COLOR, OPPONENT_COLOR, MAX_TURNS_NO_JUMP
+from checkers.consts import EM, PAWN_COLOR, KING_COLOR, OPPONENT_COLOR, MAX_TURNS_NO_JUMP, RP, RK, BP, BK, RED_PLAYER, BLACK_PLAYER
 import time
 from collections import defaultdict
 
@@ -100,10 +100,21 @@ class Player(abstract.AbstractPlayer):
             return True
         return False
 
-
     def is_in_back_line(self, loc, player_color):
         if player_color == OPPONENT_COLOR["BLACK_PLAYER"]:
             return 0
+
+    def sum_util(self, loc, color):
+        sum = 0
+        if self.is_in_center(loc):
+            sum += CENTER
+        elif self.is_in_back_line(loc, color):
+            sum += BACK_LINE
+        if self.attack_pawn(loc):
+            sum += ATTACK_PAWN
+        if self.attack_king(loc):
+            sum += ATTACK_KING
+        return sum
 
     def utility(self, state):
         if len(state.get_possible_moves()) == 0:
@@ -111,17 +122,22 @@ class Player(abstract.AbstractPlayer):
         if state.turns_since_last_jump >= MAX_TURNS_NO_JUMP:
             return 0
 
+        opponent_color = OPPONENT_COLOR[self.color]
         piece_counts = defaultdict(lambda: 0)
+        my_h_sum = 0
+        op_h_sum = 0
         for loc, loc_val in state.board:
             if loc_val != EM:
+                if loc_val == PAWN_COLOR[self.color] or loc_val == KING_COLOR[self.color]:
+                    my_h_sum += self.sum_util(loc, self.color)
+                elif loc_val == PAWN_COLOR[opponent_color] or loc_val == KING_COLOR[opponent_color]:
+                    op_h_sum += self.sum_util(loc, opponent_color)
                 piece_counts[loc_val] += 1
 
-        opponent_color = OPPONENT_COLOR[self.color]
-
         my_u = ((PAWN_WEIGHT * piece_counts[PAWN_COLOR[self.color]]) +
-                (KING_WEIGHT * piece_counts[KING_COLOR[self.color]]))
+                (KING_WEIGHT * piece_counts[KING_COLOR[self.color]])) + my_h_sum
         op_u = ((PAWN_WEIGHT * piece_counts[PAWN_COLOR[opponent_color]]) +
-                (KING_WEIGHT * piece_counts[KING_COLOR[opponent_color]]))
+                (KING_WEIGHT * piece_counts[KING_COLOR[opponent_color]])) + op_h_sum
         if my_u == 0:
             # I have no tools left
             return -INFINITY
