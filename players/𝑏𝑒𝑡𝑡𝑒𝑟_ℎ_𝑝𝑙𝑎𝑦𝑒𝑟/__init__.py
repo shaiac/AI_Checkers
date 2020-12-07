@@ -4,7 +4,7 @@
 
 import abstract
 from utils import MiniMaxWithAlphaBetaPruning, INFINITY, run_with_limited_time, ExceededTimeError
-from checkers.consts import EM, PAWN_COLOR, KING_COLOR, OPPONENT_COLOR, MAX_TURNS_NO_JUMP
+from checkers.consts import EM, PAWN_COLOR, KING_COLOR, OPPONENT_COLOR, MAX_TURNS_NO_JUMP, RED_PLAYER, BLACK_PLAYER
 import time
 from collections import defaultdict
 
@@ -93,17 +93,23 @@ class Player(abstract.AbstractPlayer):
             self.time_remaining_in_round -= (time.process_time() - self.clock)
         return best_move
 
+    # Checking if the location is center (that is more powerful location in checkers strategy).
     @staticmethod
     def is_in_center(loc):
         x, y = loc[0], loc[1]
-        if (x == 3 and y == 2) or (x == 3 and y == 4) or (x == 4 and y == 5) or (x == 4 and y ==3):
+        if (x == 3 and y == 2) or (x == 3 and y == 4) or (x == 4 and y == 5) or (x == 4 and y == 3):
             return True
         return False
 
-
-    def is_in_back_line(self, loc, player_color):
-        if player_color == OPPONENT_COLOR["BLACK_PLAYER"]:
-            return 0
+    @staticmethod
+    def is_in_back_line(loc, player_color):
+        x, y = loc[0], loc[1]
+        if player_color == BLACK_PLAYER:
+            if x == 7 and (y == 2 or y == 6):
+                return True
+        if player_color == RED_PLAYER:
+            if x == 0 and (y == 2 or y == 6):
+                return True
 
     def utility(self, state):
         if len(state.get_possible_moves()) == 0:
