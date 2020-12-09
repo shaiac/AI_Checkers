@@ -5,7 +5,8 @@ import operator
 
 import abstract
 from utils import MiniMaxWithAlphaBetaPruning, INFINITY, run_with_limited_time, ExceededTimeError
-from checkers.consts import EM, PAWN_COLOR, KING_COLOR, OPPONENT_COLOR, MAX_TURNS_NO_JUMP, RP, RK, BP, BK, RED_PLAYER, BLACK_PLAYER, MY_COLORS, OPPONENT_COLORS
+from checkers.consts import EM, PAWN_COLOR, KING_COLOR, OPPONENT_COLOR, MAX_TURNS_NO_JUMP, RK, BK, \
+    RED_PLAYER, BLACK_PLAYER, MY_COLORS, OPPONENT_COLORS
 import time
 from collections import defaultdict
 
@@ -13,12 +14,11 @@ from collections import defaultdict
 # Globals
 # ===============================================================================
 
-PAWN_WEIGHT = 1
-KING_WEIGHT = 1.5
-CENTER = 0.6
-BACK_LINE = 0.7
-ATTACK_PAWN = 0.5
-ATTACK_KING = 1.5
+PAWN_WEIGHT = 2
+KING_WEIGHT = 3
+CENTER = 0.7
+BACK_LINE = 0.9
+ATTACKED = -2
 
 
 # ===============================================================================
@@ -97,8 +97,8 @@ class Player(abstract.AbstractPlayer):
 
     @staticmethod
     def is_in_center(loc):
-        x, y = loc[0], loc[1]
-        if (x == 3 and y == 2) or (x == 3 and y == 4) or (x == 4 and y == 5) or (x == 4 and y ==3):
+        middle = [(3, 3), (3, 5), (4, 2), (4, 4)]
+        if loc in middle:
             return True
         return False
 
@@ -108,39 +108,91 @@ class Player(abstract.AbstractPlayer):
             return False
         x, y = loc[0], loc[1]
         if player_color == BLACK_PLAYER:
-            if x == 7 and (y == 2 or y == 6):
+            if x == 7 and (y == 1 or y == 5):
                 return True
         if player_color == RED_PLAYER:
             if x == 0 and (y == 2 or y == 6):
                 return True
 
-    @staticmethod
-    def attack(loc, color, board, tools):
-        x, y = loc[0], loc[1]
-        opponent_color = OPPONENT_COLOR[color]
-        if color == BLACK_PLAYER:
-            try:
-                if board[(x - 1, y + 1)] == tools[opponent_color] and board[(x - 2, y + 2)] == EM:  # right diagonal
-                    return True
-            except KeyError:
-                error = 1
-            try:
-                if board[(x - 1, y - 1)] == tools[opponent_color] and board[(x - 2, y - 2)] == EM:  # left diagonal
-                    return True
-            except KeyError:
-                error = 1
-        else:
-            try:
-                if board[(x + 1, y + 1)] == tools[opponent_color] and board[(x + 2, y + 2)] == EM:  # right diagonal
-                    return True
-            except KeyError:
-                error = 1
-            try:
-                if board[(x + 1, y - 1)] == tools[opponent_color] and board[(x + 2, y - 2)] == EM:  # left diagonal
-                    return True
-            except KeyError:
-                error = 1
+    #@staticmethod
+    # def attack(loc, board, tools, loc_val):
+    #     x, y = loc[0], loc[1]
+    #     if loc_val in MY_COLORS[RED_PLAYER]:  # red pawn or red king
+    #         try:
+    #             if board[(x + 1, y + 1)] == tools[BLACK_PLAYER] and board[(x + 2, y + 2)] == EM:  # right diagonal
+    #                 return True
+    #         except KeyError:
+    #             error = 1
+    #         try:
+    #             if board[(x + 1, y - 1)] == tools[BLACK_PLAYER] and board[(x + 2, y - 2)] == EM:  # left diagonal
+    #                 return True
+    #         except KeyError:
+    #             error = 1
+    #     elif loc_val in MY_COLORS[BLACK_PLAYER]:  # black pawn or black king
+    #         try:
+    #             if board[(x - 1, y + 1)] == tools[RED_PLAYER] and board[(x - 2, y + 2)] == EM:  # right diagonal
+    #                 return True
+    #         except KeyError:
+    #             error = 1
+    #         try:
+    #             if board[(x - 1, y - 1)] == tools[RED_PLAYER] and board[(x - 2, y - 2)] == EM:  # left diagonal
+    #                 return True
+    #         except KeyError:
+    #             error = 1
+    #     if loc_val == RK:  # red king
+    #         try:
+    #             if board[(x - 1, y + 1)] == tools[BLACK_PLAYER] and board[(x - 2, y + 2)] == EM:  # right diagonal
+    #                 return True
+    #         except KeyError:
+    #             error = 1
+    #         try:
+    #             if board[(x - 1, y - 1)] == tools[BLACK_PLAYER] and board[(x - 2, y - 2)] == EM:  # left diagonal
+    #                 return True
+    #         except KeyError:
+    #             error = 1
+    #     elif loc_val == BK:  # black king
+    #         try:
+    #             if board[(x + 1, y + 1)] == tools[BLACK_PLAYER] and board[(x + 2, y + 2)] == EM:  # right diagonal
+    #                 return True
+    #         except KeyError:
+    #             error = 1
+    #         try:
+    #             if board[(x + 1, y - 1)] == tools[BLACK_PLAYER] and board[(x + 2, y - 2)] == EM:  # left diagonal
+    #                 return True
+    #         except KeyError:
+    #             error = 1
+    #     return False
 
+    @staticmethod
+    def attacked(loc, board, loc_val):  # check if the move will put us in a vulnerable position (ATTACKED value < 0)
+        x, y = loc[0], loc[1]
+        if loc_val in MY_COLORS[RED_PLAYER]:  # RP or RK
+            try:  # attacked from front
+                if board[(x + 1, y + 1)] in OPPONENT_COLORS[RED_PLAYER] and board[(x - 1, y - 1)] == EM:
+                    return True
+                if board[(x + 1, y - 1)] in OPPONENT_COLORS[RED_PLAYER] and board[(x - 1, y + 1)] == EM:
+                    return True
+                # attacked from back (only a king can attack from the back):
+                if board[(x - 1, y + 1)] == BK and board[(x + 1, y - 1)] == EM:
+                    return True
+                if board[(x - 1, y - 1)] == BK and board[(x + 1, y + 1)] == EM:
+                    return True
+            except KeyError:
+                error = 'out of board'
+        elif loc_val in MY_COLORS[BLACK_PLAYER]:  # BP or BK
+            try:  # attacked from front
+                if board[(x - 1, y + 1)] in OPPONENT_COLORS[BLACK_PLAYER] and board[(x + 1, y - 1)] == EM:
+                    return True
+                if board[(x - 1, y - 1)] in OPPONENT_COLORS[BLACK_PLAYER] and board[(x + 1, y + 1)] == EM:
+                    return True
+                # attacked from back (only a king can attack from the back):
+                if board[(x + 1, y + 1)] == RK and board[(x - 1, y - 1)] == EM:
+                    return True
+                if board[(x + 1, y - 1)] == RK and board[(x - 1, y + 1)] == EM:
+                    return True
+            except KeyError:
+                error = 'out of board'
+        return False
 
     def sum_util(self, loc, loc_val, color, board):
         h_sum = 0
@@ -148,17 +200,15 @@ class Player(abstract.AbstractPlayer):
             h_sum += CENTER
         elif self.is_in_back_line(loc, loc_val, color):
             h_sum += BACK_LINE
-        if self.attack(loc, color, board, PAWN_COLOR):
-           h_sum += ATTACK_PAWN
-        if self.attack(loc, color, board, KING_COLOR):
-           h_sum += ATTACK_KING
+        if self.attacked(loc, board, loc_val):
+            h_sum += ATTACKED
         return h_sum
 
-    @staticmethod
-    def get_truth(inp, relate, cut):
-        ops = {'+': operator.add,
-               '-': operator.sub}
-        return ops[relate](inp, cut)
+    # @staticmethod
+    # def get_truth(inp, relate, cut):
+    #     ops = {'+': operator.add,
+    #            '-': operator.sub}
+    #     return ops[relate](inp, cut)
 
     def utility(self, state):
         if len(state.get_possible_moves()) == 0:
