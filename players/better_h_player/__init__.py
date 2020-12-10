@@ -18,8 +18,8 @@ PAWN_WEIGHT = 2
 KING_WEIGHT = 3
 CENTER = 0.7
 BACK_LINE = 0.9
-ATTACKED = -2.5
-PUSH_KING = 3
+ATTACKED = -2.4
+PUSH_KING = 3.2
 
 
 # ===============================================================================
@@ -103,7 +103,7 @@ class Player(abstract.AbstractPlayer):
         return best_move
 
     @staticmethod
-    def is_in_center(loc):
+    def is_in_center(loc, loc_val):
         middle = [(3, 3), (3, 5), (4, 2), (4, 4)]
         if loc in middle:
             return True
@@ -115,60 +115,11 @@ class Player(abstract.AbstractPlayer):
             return False
         x, y = loc[0], loc[1]
         if player_color == BLACK_PLAYER:
-            if x == 7 and (y == 1 or y == 5):
+            if x == 7 and (y == 1 or y == 3 or y == 5):
                 return True
         if player_color == RED_PLAYER:
-            if x == 0 and (y == 2 or y == 6):
+            if x == 0 and (y == 2 or y == 4 or y == 6):
                 return True
-
-    # @staticmethod
-    # def attack(loc, board, tools, loc_val):
-    #     x, y = loc[0], loc[1]
-    #     if loc_val in MY_COLORS[RED_PLAYER]:  # red pawn or red king
-    #         try:
-    #             if board[(x + 1, y + 1)] == tools[BLACK_PLAYER] and board[(x + 2, y + 2)] == EM:  # right diagonal
-    #                 return True
-    #         except KeyError:
-    #             error = 1
-    #         try:
-    #             if board[(x + 1, y - 1)] == tools[BLACK_PLAYER] and board[(x + 2, y - 2)] == EM:  # left diagonal
-    #                 return True
-    #         except KeyError:
-    #             error = 1
-    #     elif loc_val in MY_COLORS[BLACK_PLAYER]:  # black pawn or black king
-    #         try:
-    #             if board[(x - 1, y + 1)] == tools[RED_PLAYER] and board[(x - 2, y + 2)] == EM:  # right diagonal
-    #                 return True
-    #         except KeyError:
-    #             error = 1
-    #         try:
-    #             if board[(x - 1, y - 1)] == tools[RED_PLAYER] and board[(x - 2, y - 2)] == EM:  # left diagonal
-    #                 return True
-    #         except KeyError:
-    #             error = 1
-    #     if loc_val == RK:  # red king
-    #         try:
-    #             if board[(x - 1, y + 1)] == tools[BLACK_PLAYER] and board[(x - 2, y + 2)] == EM:  # right diagonal
-    #                 return True
-    #         except KeyError:
-    #             error = 1
-    #         try:
-    #             if board[(x - 1, y - 1)] == tools[BLACK_PLAYER] and board[(x - 2, y - 2)] == EM:  # left diagonal
-    #                 return True
-    #         except KeyError:
-    #             error = 1
-    #     elif loc_val == BK:  # black king
-    #         try:
-    #             if board[(x + 1, y + 1)] == tools[BLACK_PLAYER] and board[(x + 2, y + 2)] == EM:  # right diagonal
-    #                 return True
-    #         except KeyError:
-    #             error = 1
-    #         try:
-    #             if board[(x + 1, y - 1)] == tools[BLACK_PLAYER] and board[(x + 2, y - 2)] == EM:  # left diagonal
-    #                 return True
-    #         except KeyError:
-    #             error = 1
-    #     return False
 
     @staticmethod
     def attacked(loc, board, loc_val):  # check if the move will put us in a vulnerable position (ATTACKED value < 0)
@@ -238,7 +189,7 @@ class Player(abstract.AbstractPlayer):
 
     def sum_util(self, loc, loc_val, color, board):
         h_sum = 0
-        if self.is_in_center(loc):
+        if self.is_in_center(loc, loc_val):
             h_sum += CENTER
         elif self.is_in_back_line(loc, loc_val, color):
             h_sum += BACK_LINE
@@ -274,7 +225,6 @@ class Player(abstract.AbstractPlayer):
                 elif loc_val in OPPONENT_COLORS[self.color]:
                     op_h_sum += self.sum_util(loc, loc_val, opponent_color, state.board)
                 piece_counts[loc_val] += 1
-        # push kings near to opponent tools to attack
 
         my_u = ((PAWN_WEIGHT * piece_counts[PAWN_COLOR[self.color]]) +
                 (KING_WEIGHT * piece_counts[KING_COLOR[self.color]])) + my_h_sum
@@ -290,7 +240,7 @@ class Player(abstract.AbstractPlayer):
             return my_u - op_u
 
     def selective_deepening_criterion(self, state):
-        # Simple player does not selectively deepen into certain nodes.
+        #  player does not selectively deepen into certain nodes.
         return False
 
     def no_more_time(self):
