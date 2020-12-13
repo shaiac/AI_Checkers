@@ -205,8 +205,7 @@ class Player(abstract.AbstractPlayer):
 
     def only_kings_util(self, next_board, color, my_king_num, op_king_num):
         opponent_color = OPPONENT_COLOR[color]
-        my_curr_dist = 0
-        op_curr_dist = 0
+        curr_dist = 0
         # current distance sum:
         for loc_1 in self.curr_board.keys():
             loc_val_1 = self.curr_board[loc_1]
@@ -214,14 +213,9 @@ class Player(abstract.AbstractPlayer):
                 for loc_2 in self.curr_board.keys():
                     loc_val_2 = self.curr_board[loc_2]
                     if loc_val_2 in KING_COLOR[opponent_color]:
-                        my_curr_dist += ((loc_1[0] - loc_2[0])**2 + (loc_1[1] - loc_2[1])**2)**0.5
-            else:  # opponents king
-                for loc_2 in self.curr_board.keys():
-                    loc_val_2 = self.curr_board[loc_2]
-                    if loc_val_2 in KING_COLOR[color]:
-                        op_curr_dist += ((loc_1[0] - loc_2[0])**2 + (loc_1[1] - loc_2[1])**2)**0.5
+                        curr_dist += ((loc_1[0] - loc_2[0])**2 + (loc_1[1] - loc_2[1])**2)**0.5
         # next distance sum:
-        my_next_dist = 0
+        next_dist = 0
         op_next_dist = 0
         for loc_1 in next_board.keys():
             loc_val_1 = next_board[loc_1]
@@ -229,17 +223,24 @@ class Player(abstract.AbstractPlayer):
                 for loc_2 in next_board.keys():
                     loc_val_2 = next_board[loc_2]
                     if loc_val_2 in KING_COLOR[opponent_color]:
-                        my_next_dist += ((loc_1[0] - loc_2[0])**2 + (loc_1[1] - loc_2[1])**2)**0.5
-            else:  # opponents king
-                for loc_2 in next_board.keys():
-                    loc_val_2 = next_board[loc_2]
-                    if loc_val_2 in KING_COLOR[color]:
-                        op_next_dist += ((loc_1[0] - loc_2[0])**2 + (loc_1[1] - loc_2[1])**2)**0.5
+                        next_dist += ((loc_1[0] - loc_2[0])**2 + (loc_1[1] - loc_2[1])**2)**0.5
 
-        if my_king_num >= op_king_num:
-            return KING_ATTACK
-        else:
-            return RUN_AWAY_KING
+        if curr_dist >= next_dist:
+            # distance decreases
+            if my_king_num >= op_king_num:
+                # we have more kings, increase utility so we get closer to opponent in order to attack
+                return KING_ATTACK
+            else:
+                # we have less kings, decrease utility so we don't get closer to opponent (run away)
+                return RUN_AWAY_KING
+        return 0
+        # else:  # distance increases
+        #     if my_king_num >= op_king_num:
+        #         # we have more kings, decrease utility so we don't get away from opponent, in order to attack
+        #         return -KING_ATTACK
+        #     else:
+        #         # we have less kings, increase utility so we get don't get close to opponent (run away)
+        #         return -RUN_AWAY_KING
 
     def utility(self, state):
         if len(state.get_possible_moves()) == 0:
@@ -260,7 +261,7 @@ class Player(abstract.AbstractPlayer):
                     op_h_sum += self.sum_util(loc, loc_val, opponent_color, state.board)
                 piece_counts[loc_val] += 1
 
-        # check if there are only kings on the board: ////////// OR MOSTLY
+        # if there are only kings on the board: ////////// OR MOSTLY
         if piece_counts[PAWN_COLOR[self.color]] < piece_counts[KING_COLOR[self.color]] \
                 and piece_counts[PAWN_COLOR[opponent_color]] < piece_counts[KING_COLOR[opponent_color]]:
             my_h_sum += self.only_kings_util(state.board, self.color,
