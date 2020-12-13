@@ -261,7 +261,7 @@ class Player(abstract.AbstractPlayer):
                     op_h_sum += self.sum_util(loc, loc_val, opponent_color, state.board)
                 piece_counts[loc_val] += 1
 
-        # if there are only kings on the board: ////////// OR MOSTLY
+        # if there are mostly kings on the board:
         if piece_counts[PAWN_COLOR[self.color]] < piece_counts[KING_COLOR[self.color]] \
                 and piece_counts[PAWN_COLOR[opponent_color]] < piece_counts[KING_COLOR[opponent_color]]:
             my_h_sum += self.only_kings_util(state.board, self.color,
