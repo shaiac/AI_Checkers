@@ -19,7 +19,10 @@ KING_WEIGHT = 3
 CENTER = 0.7
 BACK_LINE = 0.9
 ATTACKED = -2.4
-PUSH_KING = 3.2
+#PUSH_KING = 3.2
+
+RUN_AWAY_KING = -3
+KING_ATTACK = 3
 
 
 # ===============================================================================
@@ -195,17 +198,48 @@ class Player(abstract.AbstractPlayer):
             h_sum += BACK_LINE
         if self.attacked(loc, board, loc_val):
             h_sum += ATTACKED
-        elif loc_val in KING_COLOR[color]:  # is a king and not attacked
-            #print("checking push king !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-            if self.push_kings(loc, board):
-                h_sum += PUSH_KING
+        # elif loc_val in KING_COLOR[color]:  # is a king and not attacked
+        #     if self.push_kings(loc, board):
+        #         h_sum += PUSH_KING
         return h_sum
 
-    # @staticmethod
-    # def get_truth(inp, relate, cut):
-    #     ops = {'+': operator.add,
-    #            '-': operator.sub}
-    #     return ops[relate](inp, cut)
+    def only_kings_util(self, next_board, color, my_king_num, op_king_num):
+        opponent_color = OPPONENT_COLOR[color]
+        my_curr_dist = 0
+        op_curr_dist = 0
+        # current distance sum:
+        for loc_1 in self.curr_board.keys():
+            loc_val_1 = self.curr_board[loc_1]
+            if loc_val_1 in KING_COLOR[color]:  # my king
+                for loc_2 in self.curr_board.keys():
+                    loc_val_2 = self.curr_board[loc_2]
+                    if loc_val_2 in KING_COLOR[opponent_color]:
+                        my_curr_dist += ((loc_1[0] - loc_2[0])**2 + (loc_1[1] - loc_2[1])**2)**0.5
+            else:  # opponents king
+                for loc_2 in self.curr_board.keys():
+                    loc_val_2 = self.curr_board[loc_2]
+                    if loc_val_2 in KING_COLOR[color]:
+                        op_curr_dist += ((loc_1[0] - loc_2[0])**2 + (loc_1[1] - loc_2[1])**2)**0.5
+        # next distance sum:
+        my_next_dist = 0
+        op_next_dist = 0
+        for loc_1 in next_board.keys():
+            loc_val_1 = next_board[loc_1]
+            if loc_val_1 in KING_COLOR[color]:  # my king
+                for loc_2 in next_board.keys():
+                    loc_val_2 = next_board[loc_2]
+                    if loc_val_2 in KING_COLOR[opponent_color]:
+                        my_next_dist += ((loc_1[0] - loc_2[0])**2 + (loc_1[1] - loc_2[1])**2)**0.5
+            else:  # opponents king
+                for loc_2 in next_board.keys():
+                    loc_val_2 = next_board[loc_2]
+                    if loc_val_2 in KING_COLOR[color]:
+                        op_next_dist += ((loc_1[0] - loc_2[0])**2 + (loc_1[1] - loc_2[1])**2)**0.5
+
+        if my_king_num >= op_king_num:
+            return KING_ATTACK
+        else:
+            return RUN_AWAY_KING
 
     def utility(self, state):
         if len(state.get_possible_moves()) == 0:
@@ -225,6 +259,15 @@ class Player(abstract.AbstractPlayer):
                 elif loc_val in OPPONENT_COLORS[self.color]:
                     op_h_sum += self.sum_util(loc, loc_val, opponent_color, state.board)
                 piece_counts[loc_val] += 1
+
+        # # check if there are only kings on the board:
+        # if piece_counts[PAWN_COLOR[self.color]] == 0 and piece_counts[PAWN_COLOR[opponent_color]] == 0:
+        #     my_h_sum += self.only_kings_util(state.board, self.color,
+        #                                      piece_counts[KING_COLOR[self.color]],
+        #                                      piece_counts[KING_COLOR[opponent_color]])
+        #     op_h_sum += self.only_kings_util(state.board, opponent_color,
+        #                                      piece_counts[KING_COLOR[opponent_color]],
+        #                                      piece_counts[KING_COLOR[self.color]])
 
         my_u = ((PAWN_WEIGHT * piece_counts[PAWN_COLOR[self.color]]) +
                 (KING_WEIGHT * piece_counts[KING_COLOR[self.color]])) + my_h_sum
