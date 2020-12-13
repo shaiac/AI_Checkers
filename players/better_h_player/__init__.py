@@ -1,7 +1,6 @@
 # ===============================================================================
 # Imports
 # ===============================================================================
-import sys
 
 import abstract
 from utils import MiniMaxWithAlphaBetaPruning, INFINITY, run_with_limited_time, ExceededTimeError
@@ -18,11 +17,11 @@ PAWN_WEIGHT = 2
 KING_WEIGHT = 3
 CENTER = 0.7
 BACK_LINE = 0.9
-ATTACKED = -2.4
+ATTACKED = -2
 #PUSH_KING = 3.2
 
-RUN_AWAY_KING = -3
-KING_ATTACK = 3
+RUN_AWAY_KING = -1
+KING_ATTACK = 4
 
 
 # ===============================================================================
@@ -106,7 +105,7 @@ class Player(abstract.AbstractPlayer):
         return best_move
 
     @staticmethod
-    def is_in_center(loc, loc_val):
+    def is_in_center(loc):
         middle = [(3, 3), (3, 5), (4, 2), (4, 4)]
         if loc in middle:
             return True
@@ -124,8 +123,9 @@ class Player(abstract.AbstractPlayer):
             if x == 0 and (y == 2 or y == 4 or y == 6):
                 return True
 
+    # check if the move will put us in a vulnerable position (ATTACKED value < 0)
     @staticmethod
-    def attacked(loc, board, loc_val):  # check if the move will put us in a vulnerable position (ATTACKED value < 0)
+    def attacked(loc, board, loc_val):
         x, y = loc[0], loc[1]
         if loc_val in MY_COLORS[RED_PLAYER]:  # RP or RK
             try:  # attacked from front
@@ -155,44 +155,44 @@ class Player(abstract.AbstractPlayer):
                 error = 'out of board'
         return False
 
-    # check if distance of king to opponent tool decreases
-    def push_kings(self, my_loc, board):
-        if self.curr_board is None:
-            return False
-        dist_from_nearest_opponent = sys.maxsize
-        # find nearest opponent distance
-        for loc in board.keys():
-            loc_val = board[loc]
-            if loc_val in OPPONENT_COLORS[self.color]:
-                dist = ((my_loc[0] - loc[0])**2 + (my_loc[1] - loc[1])**2)**0.5
-                if dist < dist_from_nearest_opponent:
-                    dist_from_nearest_opponent = dist
-        if dist_from_nearest_opponent < self.prev_dist(my_loc):
-            return True  # my king is getting close to an opponent tool
-        return False  # distance from opponent tool didn't get smaller
+    # # check if distance of king to opponent tool decreases
+    # def push_kings(self, my_loc, board):
+    #     if self.curr_board is None:
+    #         return False
+    #     dist_from_nearest_opponent = sys.maxsize
+    #     # find nearest opponent distance
+    #     for loc in board.keys():
+    #         loc_val = board[loc]
+    #         if loc_val in OPPONENT_COLORS[self.color]:
+    #             dist = ((my_loc[0] - loc[0])**2 + (my_loc[1] - loc[1])**2)**0.5
+    #             if dist < dist_from_nearest_opponent:
+    #                 dist_from_nearest_opponent = dist
+    #     if dist_from_nearest_opponent < self.prev_dist(my_loc):
+    #         return True  # my king is getting close to an opponent tool
+    #     return False  # distance from opponent tool didn't get smaller
 
     # Return distance of the king located in the given location from nearest opponent tool, before current turn
     # (in order to check if it got closer to the opponent in the current turn).
-    def prev_dist(self, my_loc):
-        board = self.curr_board
-        dist_from_nearest_opponent = sys.maxsize
-        if board[my_loc] == KING_COLOR[self.color]:
-            # king didn't move on current turn, check its previous distance from nearest opponent tool
-            king_loc = my_loc
-        else:  # king moved on current turn. Check distance from nearest opponent tool before movement
-            king_loc = self.last_move.origin_loc
-        # find nearest opponent distance
-        for loc in board.keys():
-            loc_val = board[loc]
-            if loc_val in OPPONENT_COLORS[self.color]:
-                dist = ((king_loc[0] - loc[0]) ** 2 + (king_loc[1] - loc[1]) ** 2) ** 0.5
-                if dist < dist_from_nearest_opponent:
-                    dist_from_nearest_opponent = dist
-        return dist_from_nearest_opponent
+    # def prev_dist(self, my_loc):
+    #     board = self.curr_board
+    #     dist_from_nearest_opponent = sys.maxsize
+    #     if board[my_loc] == KING_COLOR[self.color]:
+    #         # king didn't move on current turn, check its previous distance from nearest opponent tool
+    #         king_loc = my_loc
+    #     else:  # king moved on current turn. Check distance from nearest opponent tool before movement
+    #         king_loc = self.last_move.origin_loc
+    #     # find nearest opponent distance
+    #     for loc in board.keys():
+    #         loc_val = board[loc]
+    #         if loc_val in OPPONENT_COLORS[self.color]:
+    #             dist = ((king_loc[0] - loc[0]) ** 2 + (king_loc[1] - loc[1]) ** 2) ** 0.5
+    #             if dist < dist_from_nearest_opponent:
+    #                 dist_from_nearest_opponent = dist
+    #     return dist_from_nearest_opponent
 
     def sum_util(self, loc, loc_val, color, board):
         h_sum = 0
-        if self.is_in_center(loc, loc_val):
+        if self.is_in_center(loc):
             h_sum += CENTER
         elif self.is_in_back_line(loc, loc_val, color):
             h_sum += BACK_LINE
@@ -260,15 +260,16 @@ class Player(abstract.AbstractPlayer):
                     op_h_sum += self.sum_util(loc, loc_val, opponent_color, state.board)
                 piece_counts[loc_val] += 1
 
-        # # check if there are only kings on the board:
-        # if piece_counts[PAWN_COLOR[self.color]] == 0 and piece_counts[PAWN_COLOR[opponent_color]] == 0:
-        #     my_h_sum += self.only_kings_util(state.board, self.color,
-        #                                      piece_counts[KING_COLOR[self.color]],
-        #                                      piece_counts[KING_COLOR[opponent_color]])
-        #     op_h_sum += self.only_kings_util(state.board, opponent_color,
-        #                                      piece_counts[KING_COLOR[opponent_color]],
-        #                                      piece_counts[KING_COLOR[self.color]])
-
+        # check if there are only kings on the board: ////////// OR MOSTLY
+        if piece_counts[PAWN_COLOR[self.color]] < piece_counts[KING_COLOR[self.color]] \
+                and piece_counts[PAWN_COLOR[opponent_color]] < piece_counts[KING_COLOR[opponent_color]]:
+            my_h_sum += self.only_kings_util(state.board, self.color,
+                                             piece_counts[KING_COLOR[self.color]],
+                                             piece_counts[KING_COLOR[opponent_color]])
+            op_h_sum += self.only_kings_util(state.board, opponent_color,
+                                             piece_counts[KING_COLOR[opponent_color]],
+                                             piece_counts[KING_COLOR[self.color]])
+        # sum total utility
         my_u = ((PAWN_WEIGHT * piece_counts[PAWN_COLOR[self.color]]) +
                 (KING_WEIGHT * piece_counts[KING_COLOR[self.color]])) + my_h_sum
         op_u = ((PAWN_WEIGHT * piece_counts[PAWN_COLOR[opponent_color]]) +
