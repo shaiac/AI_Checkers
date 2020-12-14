@@ -39,14 +39,20 @@ class Player(abstract.AbstractPlayer):
         self.time_remaining_in_round = self.time_per_k_turns
         self.time_for_current_move = self.time_remaining_in_round / self.turns_remaining_in_round - 0.05
         self.curr_board = None
-        self.last_move = None
+        #self.last_move = None
 
     def get_move(self, game_state, possible_moves):
         self.clock = time.process_time()
         self.time_for_current_move = self.time_remaining_in_round / self.turns_remaining_in_round - 0.05
         if len(possible_moves) == 1:
+            if self.turns_remaining_in_round == 1:
+                self.turns_remaining_in_round = self.k
+                self.time_remaining_in_round = self.time_per_k_turns
+            else:
+                self.turns_remaining_in_round -= 1
+                self.time_remaining_in_round -= (time.process_time() - self.clock)
             self.curr_board = game_state.board  # save game board
-            self.last_move = possible_moves[0]  # save current move
+            #self.last_move = possible_moves[0]  # save current move
             return possible_moves[0]
 
         current_depth = 1
@@ -101,7 +107,7 @@ class Player(abstract.AbstractPlayer):
             self.turns_remaining_in_round -= 1
             self.time_remaining_in_round -= (time.process_time() - self.clock)
         self.curr_board = game_state.board  # save game board
-        self.last_move = best_move  # save current move
+        #self.last_move = best_move  # save current move
         return best_move
 
     @staticmethod
@@ -227,7 +233,7 @@ class Player(abstract.AbstractPlayer):
 
         if curr_dist >= next_dist:
             # distance decreases
-            if my_king_num >= op_king_num:
+            if my_king_num > op_king_num:
                 # we have more kings, increase utility so we get closer to opponent in order to attack
                 return KING_ATTACK
             else:
@@ -294,4 +300,4 @@ class Player(abstract.AbstractPlayer):
     def __repr__(self):
         return '{} {}'.format(abstract.AbstractPlayer.__repr__(self), 'better_h')
 
-# c:\python35\python.exe run_game.py 3 3 3 y simple_player random_player
+
