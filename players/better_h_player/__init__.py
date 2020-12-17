@@ -38,13 +38,12 @@ class Player(abstract.AbstractPlayer):
         self.turns_remaining_in_round = self.k
         self.time_remaining_in_round = self.time_per_k_turns
         self.time_for_current_move = self.time_remaining_in_round / self.turns_remaining_in_round - 0.05
-        self.curr_board = None
-        #self.last_move = None
+        self.curr_board = None  # save the current game board
 
     def get_move(self, game_state, possible_moves):
         self.clock = time.process_time()
         self.time_for_current_move = self.time_remaining_in_round / self.turns_remaining_in_round - 0.05
-        if len(possible_moves) == 1:
+        if len(possible_moves) == 1:  # update time and turns
             if self.turns_remaining_in_round == 1:
                 self.turns_remaining_in_round = self.k
                 self.time_remaining_in_round = self.time_per_k_turns
@@ -52,7 +51,6 @@ class Player(abstract.AbstractPlayer):
                 self.turns_remaining_in_round -= 1
                 self.time_remaining_in_round -= (time.process_time() - self.clock)
             self.curr_board = game_state.board  # save game board
-            #self.last_move = possible_moves[0]  # save current move
             return possible_moves[0]
 
         current_depth = 1
@@ -110,6 +108,7 @@ class Player(abstract.AbstractPlayer):
         #self.last_move = best_move  # save current move
         return best_move
 
+    # check if the given location is in the center of the board
     @staticmethod
     def is_in_center(loc):
         middle = [(3, 3), (3, 5), (4, 2), (4, 4)]
@@ -117,6 +116,7 @@ class Player(abstract.AbstractPlayer):
             return True
         return False
 
+    # check if the given location is in the back line, depending on its player color
     @staticmethod
     def is_in_back_line(loc, loc_val, player_color):
         if loc_val in KING_COLOR.values():
@@ -161,54 +161,20 @@ class Player(abstract.AbstractPlayer):
                 error = 'out of board'
         return False
 
-    # # check if distance of king to opponent tool decreases
-    # def push_kings(self, my_loc, board):
-    #     if self.curr_board is None:
-    #         return False
-    #     dist_from_nearest_opponent = sys.maxsize
-    #     # find nearest opponent distance
-    #     for loc in board.keys():
-    #         loc_val = board[loc]
-    #         if loc_val in OPPONENT_COLORS[self.color]:
-    #             dist = ((my_loc[0] - loc[0])**2 + (my_loc[1] - loc[1])**2)**0.5
-    #             if dist < dist_from_nearest_opponent:
-    #                 dist_from_nearest_opponent = dist
-    #     if dist_from_nearest_opponent < self.prev_dist(my_loc):
-    #         return True  # my king is getting close to an opponent tool
-    #     return False  # distance from opponent tool didn't get smaller
-
-    # Return distance of the king located in the given location from nearest opponent tool, before current turn
-    # (in order to check if it got closer to the opponent in the current turn).
-    # def prev_dist(self, my_loc):
-    #     board = self.curr_board
-    #     dist_from_nearest_opponent = sys.maxsize
-    #     if board[my_loc] == KING_COLOR[self.color]:
-    #         # king didn't move on current turn, check its previous distance from nearest opponent tool
-    #         king_loc = my_loc
-    #     else:  # king moved on current turn. Check distance from nearest opponent tool before movement
-    #         king_loc = self.last_move.origin_loc
-    #     # find nearest opponent distance
-    #     for loc in board.keys():
-    #         loc_val = board[loc]
-    #         if loc_val in OPPONENT_COLORS[self.color]:
-    #             dist = ((king_loc[0] - loc[0]) ** 2 + (king_loc[1] - loc[1]) ** 2) ** 0.5
-    #             if dist < dist_from_nearest_opponent:
-    #                 dist_from_nearest_opponent = dist
-    #     return dist_from_nearest_opponent
-
+    # sum utility of our heuristic
     def sum_util(self, loc, loc_val, color, board):
         h_sum = 0
         if self.is_in_center(loc):
-            h_sum += CENTER
+            h_sum += CENTER  # being in the center of the board is good
         elif self.is_in_back_line(loc, loc_val, color):
-            h_sum += BACK_LINE
+            h_sum += BACK_LINE  # being in the back line is good
         if self.attacked(loc, board, loc_val):
-            h_sum += ATTACKED
-        # elif loc_val in KING_COLOR[color]:  # is a king and not attacked
-        #     if self.push_kings(loc, board):
-        #         h_sum += PUSH_KING
+            h_sum += ATTACKED  # being in a position that could be attacked is bad
         return h_sum
 
+    # when only (or mostly) kings are left in the game, if we have more kings than the opponent we want to push our
+    # kings towards the opponent to attack, and if we have less kings than the opponent we want our kings to run away
+    # and increase their distance from the opponent tools.
     def only_kings_util(self, next_board, color, my_king_num, op_king_num):
         opponent_color = OPPONENT_COLOR[color]
         curr_dist = 0
@@ -218,7 +184,7 @@ class Player(abstract.AbstractPlayer):
             if loc_val_1 in KING_COLOR[color]:  # my king
                 for loc_2 in self.curr_board.keys():
                     loc_val_2 = self.curr_board[loc_2]
-                    if loc_val_2 in KING_COLOR[opponent_color]:
+                    if loc_val_2 in KING_COLOR[opponent_color]:  # opponent king
                         curr_dist += ((loc_1[0] - loc_2[0])**2 + (loc_1[1] - loc_2[1])**2)**0.5
         # next distance sum:
         next_dist = 0
@@ -228,7 +194,7 @@ class Player(abstract.AbstractPlayer):
             if loc_val_1 in KING_COLOR[color]:  # my king
                 for loc_2 in next_board.keys():
                     loc_val_2 = next_board[loc_2]
-                    if loc_val_2 in KING_COLOR[opponent_color]:
+                    if loc_val_2 in KING_COLOR[opponent_color]:  # opponent king
                         next_dist += ((loc_1[0] - loc_2[0])**2 + (loc_1[1] - loc_2[1])**2)**0.5
 
         if curr_dist >= next_dist:
@@ -240,13 +206,6 @@ class Player(abstract.AbstractPlayer):
                 # we have less kings, decrease utility so we don't get closer to opponent (run away)
                 return RUN_AWAY_KING
         return 0
-        # else:  # distance increases
-        #     if my_king_num >= op_king_num:
-        #         # we have more kings, decrease utility so we don't get away from opponent, in order to attack
-        #         return -KING_ATTACK
-        #     else:
-        #         # we have less kings, increase utility so we get don't get close to opponent (run away)
-        #         return -RUN_AWAY_KING
 
     def utility(self, state):
         if len(state.get_possible_moves()) == 0:
@@ -262,12 +221,12 @@ class Player(abstract.AbstractPlayer):
             loc_val = state.board[loc]
             if loc_val != EM:
                 if loc_val in MY_COLORS[self.color]:
-                    my_h_sum += self.sum_util(loc, loc_val, self.color, state.board)
+                    my_h_sum += self.sum_util(loc, loc_val, self.color, state.board)  # add heuristic utility
                 elif loc_val in OPPONENT_COLORS[self.color]:
-                    op_h_sum += self.sum_util(loc, loc_val, opponent_color, state.board)
+                    op_h_sum += self.sum_util(loc, loc_val, opponent_color, state.board)  # add heuristic utility
                 piece_counts[loc_val] += 1
 
-        # if there are mostly kings on the board:
+        # if there are mostly kings on the board we want to activate the "only_kings" utility:
         if piece_counts[PAWN_COLOR[self.color]] < piece_counts[KING_COLOR[self.color]] \
                 and piece_counts[PAWN_COLOR[opponent_color]] < piece_counts[KING_COLOR[opponent_color]]:
             my_h_sum += self.only_kings_util(state.board, self.color,
@@ -299,5 +258,3 @@ class Player(abstract.AbstractPlayer):
 
     def __repr__(self):
         return '{} {}'.format(abstract.AbstractPlayer.__repr__(self), 'better_h')
-
-
