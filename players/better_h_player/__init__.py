@@ -18,8 +18,6 @@ KING_WEIGHT = 3
 CENTER = 0.7
 BACK_LINE = 0.9
 ATTACKED = -2
-#PUSH_KING = 3.2
-
 RUN_AWAY_KING = -1
 KING_ATTACK = 4
 
@@ -105,7 +103,6 @@ class Player(abstract.AbstractPlayer):
             self.turns_remaining_in_round -= 1
             self.time_remaining_in_round -= (time.process_time() - self.clock)
         self.curr_board = game_state.board  # save game board
-        #self.last_move = best_move  # save current move
         return best_move
 
     # check if the given location is in the center of the board
@@ -235,6 +232,7 @@ class Player(abstract.AbstractPlayer):
             op_h_sum += self.only_kings_util(state.board, opponent_color,
                                              piece_counts[KING_COLOR[opponent_color]],
                                              piece_counts[KING_COLOR[self.color]])
+
         # sum total utility
         my_u = ((PAWN_WEIGHT * piece_counts[PAWN_COLOR[self.color]]) +
                 (KING_WEIGHT * piece_counts[KING_COLOR[self.color]])) + my_h_sum
